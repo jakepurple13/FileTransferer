@@ -17,6 +17,7 @@ object DefaultLogger : ILog {
     }
 
     override fun e(tag: String, msg: String, throwable: Throwable?) {
+        throwable?.printStackTrace()
         println("$tag: $msg, throwable: $throwable")
     }
 }

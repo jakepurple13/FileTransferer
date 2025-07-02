@@ -528,7 +528,6 @@ class FileDownloader(
                                                 }
                                             )
                                         } else {
-
                                             updateProgress(data.size.toLong())
                                             errorStateIfActive("Task is null")
                                         }
@@ -573,6 +572,10 @@ class FileDownloader(
             }
 
             fun connectToServer(simpleCallback: SimpleCallback<Unit>) {
+                connectToServerWithRetry(simpleCallback, 1, 1000)
+            }
+
+            private fun connectToServerWithRetry(simpleCallback: SimpleCallback<Unit>, attempt: Int, delayMs: Long) {
                 // Fragment's connection task
                 val task = NettyTcpClientConnectionTask(
                     serverAddress = connectAddress,
@@ -599,8 +602,25 @@ class FileDownloader(
                         if (nettyState is NettyTaskState.ConnectionClosed
                             || nettyState is NettyTaskState.Error) {
                             // Connection fail.
-                            simpleCallback.onError("Connect error: $nettyState")
-                            task.removeObserver(this)
+                            val maxRetries = 5
+                            if (attempt < maxRetries) {
+                                // Retry with exponential backoff
+                                log.d(TAG, "Connection attempt $attempt failed, retrying in ${delayMs}ms...")
+                                task.removeObserver(this)
+                                task.stopTask()
+
+                                // Schedule retry with exponential backoff
+                                Dispatchers.IO.asExecutor().execute {
+                                    Thread.sleep(delayMs)
+                                    connectToServerWithRetry(simpleCallback, attempt + 1, delayMs * 2)
+                                }
+                            } else {
+                                // Max retries reached, report error
+                                log.e(TAG, "Connection failed after $maxRetries attempts")
+                                (nettyState as? NettyTaskState.Error)?.throwable?.printStackTrace()
+                                simpleCallback.onError("Connect error: $nettyState, throwable: ${(nettyState as? NettyTaskState.Error)?.throwable}")
+                                task.removeObserver(this)
+                            }
                         }
                     }
 
@@ -675,7 +695,6 @@ class FileDownloader(
                             log.e(TAG, msg)
                             errorStateIfActive(msg)
                         }
-
                     }
                 )
             }

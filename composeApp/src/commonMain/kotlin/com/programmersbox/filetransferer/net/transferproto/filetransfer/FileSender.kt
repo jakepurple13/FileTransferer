@@ -91,61 +91,83 @@ class FileSender(
             // Move first file send task to sending task.
             doNextSender(null)
 
-            // File sender server, waiting clients request.
-            val serverTask = NettyTcpServerConnectionTask(
-                bindAddress = bindAddress,
-                bindPort = TransferProtoConstant.FILE_TRANSFER_PORT,
-                newClientTaskCallback = { clientTask ->
-                    // New client coming.
-                    assertActive(
-                        notActive = { clientTask.stopTask() }
-                    ) {
-                        synchronized(this) {
-                            val workingSender = workingSender.get()
-                            if (workingSender != null) {
-                                // Working file send task handle client connection.
-                                workingSender.newChildTask(clientTask)
-                            } else {
-                                clientTask.stopTask()
-                                val msg = "No working sender to handle clientTask."
-                                log.e(TAG, msg)
-                                errorStateIfActive(msg)
-                            }
+            // Start server with retry mechanism
+            startServerWithRetry(1, 1000)
+        }
+    }
+
+    /**
+     * Start server with retry mechanism
+     * @param attempt Current attempt number
+     * @param delayMs Delay before next retry in milliseconds
+     */
+    private fun startServerWithRetry(attempt: Int, delayMs: Long) {
+        // File sender server, waiting clients request.
+        val serverTask = NettyTcpServerConnectionTask(
+            bindAddress = bindAddress,
+            bindPort = TransferProtoConstant.FILE_TRANSFER_PORT,
+            newClientTaskCallback = { clientTask ->
+                // New client coming.
+                assertActive(
+                    notActive = { clientTask.stopTask() }
+                ) {
+                    synchronized(this) {
+                        val workingSender = workingSender.get()
+                        if (workingSender != null) {
+                            // Working file send task handle client connection.
+                            workingSender.newChildTask(clientTask)
+                        } else {
+                            clientTask.stopTask()
+                            val msg = "No working sender to handle clientTask."
+                            log.e(TAG, msg)
+                            errorStateIfActive(msg)
                         }
                     }
                 }
-            )
-            this.serverTask.set(serverTask)
-            serverTask.addObserver(object : NettyConnectionObserver {
-                override fun onNewState(nettyState: NettyTaskState, task: INettyConnectionTask) {
+            }
+        )
+        this.serverTask.set(serverTask)
+        serverTask.addObserver(object : NettyConnectionObserver {
+            override fun onNewState(nettyState: NettyTaskState, task: INettyConnectionTask) {
+                if (nettyState is NettyTaskState.Error
+                    || nettyState is NettyTaskState.ConnectionClosed) {
+                    // Server connect error.
+                    if (getCurrentState() is FileTransferState.Started) {
+                        val maxRetries = 5
+                        if (attempt < maxRetries) {
+                            // Retry with exponential backoff
+                            log.d(TAG, "Server bind attempt $attempt failed, retrying in ${delayMs}ms...")
+                            serverTask.stopTask()
 
-                    if (nettyState is NettyTaskState.Error
-                        || nettyState is NettyTaskState.ConnectionClosed) {
-                        // Server connect error.
-                        if (getCurrentState() is FileTransferState.Started) {
-                            val errorMsg = "Bind address fail: $nettyState, ${getCurrentState()}"
+                            // Schedule retry with exponential backoff
+                            Dispatchers.IO.asExecutor().execute {
+                                Thread.sleep(delayMs)
+                                startServerWithRetry(attempt + 1, delayMs * 2)
+                            }
+                        } else {
+                            // Max retries reached, report error
+                            val errorMsg = "Bind address failed after $maxRetries attempts: $nettyState, throwable: ${(nettyState as? NettyTaskState.Error)?.throwable}, ${getCurrentState()}"
                             log.e(TAG, errorMsg)
                             errorStateIfActive(errorMsg)
                         }
-                    } else {
-                        // Server connect success.
-                        if (nettyState is NettyTaskState.ConnectionActive) {
-                            log.d(TAG, "Bind address success: $nettyState")
-                        }
+                    }
+                } else {
+                    // Server connect success.
+                    if (nettyState is NettyTaskState.ConnectionActive) {
+                        log.d(TAG, "Bind address success: $nettyState")
                     }
                 }
+            }
 
-                override fun onNewMessage(
-                    localAddress: InetSocketAddress?,
-                    remoteAddress: InetSocketAddress?,
-                    msg: PackageData,
-                    task: INettyConnectionTask
-                ) {}
-            })
-            // Start server task.
-            serverTask.startTask()
-
-        }
+            override fun onNewMessage(
+                localAddress: InetSocketAddress?,
+                remoteAddress: InetSocketAddress?,
+                msg: PackageData,
+                task: INettyConnectionTask
+            ) {}
+        })
+        // Start server task.
+        serverTask.startTask()
     }
 
     @Synchronized

@@ -118,39 +118,91 @@ class ConnectionViewModel(
 
             launch(Dispatchers.IO) {
                 if (isServer) {
-                    // Server
-                    runCatching {
-                        withTimeout(5000L) {
-                            fileExplore.bindSuspend(address = localAddress.toInetAddress())
-                        }
-                    }
-                } else {
-                    // Client, client retry 3 times.
-                    var connectTimes = 3
-                    var connectResult: Result<Unit>
+                    // Server with improved retry mechanism
+                    val maxRetries = 5
+                    var retryCount = 0
+                    var bindResult: Result<Unit>
+                    var backoffDelay = 500L // Start with 500ms delay
+
                     do {
-                        delay(200)
+                        if (retryCount > 0) {
+                            println("Server bind attempt $retryCount failed, retrying in ${backoffDelay}ms...")
+                            delay(backoffDelay)
+                            // Exponential backoff with a maximum of 8 seconds
+                            backoffDelay = minOf(backoffDelay * 2, 8000L)
+                        }
+
+                        bindResult = runCatching {
+                            withTimeout(5000L) {
+                                fileExplore.bindSuspend(address = localAddress.toInetAddress())
+                            }
+                        }
+                        retryCount++
+                    } while (!bindResult.isSuccess && retryCount < maxRetries)
+
+                    if (!bindResult.isSuccess) {
+                        println("Server bind failed after $maxRetries attempts: ${bindResult.exceptionOrNull()}")
+                        connectionStatus = ConnectionStatus.Closed
+                        return@launch
+                    }
+
+                    bindResult
+                } else {
+                    // Client with improved retry mechanism
+                    val maxRetries = 5
+                    var retryCount = 0
+                    var connectResult: Result<Unit>
+                    var backoffDelay = 500L // Start with 500ms delay
+
+                    do {
+                        if (retryCount > 0) {
+                            println("Client connection attempt $retryCount failed, retrying in ${backoffDelay}ms...")
+                            delay(backoffDelay)
+                            // Exponential backoff with a maximum of 8 seconds
+                            backoffDelay = minOf(backoffDelay * 2, 8000L)
+                        }
+
                         connectResult = runCatching {
                             fileExplore.connectSuspend(remoteAddress.toInetAddress())
                         }
-                        if (connectResult.isSuccess) {
-                            break
-                        }
-                    } while (--connectTimes > 0)
+                        retryCount++
+                    } while (!connectResult.isSuccess && retryCount < maxRetries)
+
+                    if (!connectResult.isSuccess) {
+                        println("Client connection failed after $maxRetries attempts: ${connectResult.exceptionOrNull()}")
+                        connectionStatus = ConnectionStatus.Closed
+                        return@launch
+                    }
+
                     connectResult
                 }
                     .onSuccess {
                         // Handshake, client request handshake, server wait handshake.
                         if (isServer) {
                             runCatching {
-                                withTimeout(3000L) {
+                                withTimeout(5000L) { // Increased timeout for handshake
                                     fileExplore.waitHandshake()
                                 }
                             }
                         } else {
-                            runCatching {
-                                fileExplore.handshakeSuspend()
-                            }
+                            // Client handshake with retry
+                            val maxHandshakeRetries = 3
+                            var handshakeRetryCount = 0
+                            var handshakeResult: Result<Handshake>
+
+                            do {
+                                if (handshakeRetryCount > 0) {
+                                    println("Handshake attempt $handshakeRetryCount failed, retrying...")
+                                    delay(1000)
+                                }
+
+                                handshakeResult = runCatching {
+                                    fileExplore.handshakeSuspend()
+                                }
+                                handshakeRetryCount++
+                            } while (!handshakeResult.isSuccess && handshakeRetryCount < maxHandshakeRetries)
+
+                            handshakeResult
                         }
                             .onSuccess { handshake ->
                                 connectionStatus = ConnectionStatus.Connected(handshake)
@@ -169,12 +221,14 @@ class ConnectionViewModel(
                                 fileExplore.waitClose()
                                 connectionStatus = ConnectionStatus.Closed
                             }
-                            .onFailure {
+                            .onFailure { error ->
+                                println("Handshake failed: ${error.message}")
                                 connectionStatus = ConnectionStatus.Closed
                             }
                     }
-                    .onFailure {
+                    .onFailure { error ->
                         // Create connection fail.
+                        println("Connection establishment failed: ${error.message}")
                         connectionStatus = ConnectionStatus.Closed
                     }
             }
