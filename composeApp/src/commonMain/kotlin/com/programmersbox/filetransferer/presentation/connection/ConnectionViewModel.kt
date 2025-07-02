@@ -27,6 +27,7 @@ import com.programmersbox.filetransferer.net.transferproto.fileexplore.model.Sen
 import com.programmersbox.filetransferer.net.transferproto.fileexplore.model.SendFilesResp
 import com.programmersbox.filetransferer.net.transferproto.fileexplore.model.SendMsgReq
 import com.programmersbox.filetransferer.net.transferproto.fileexplore.requestMsgSuspend
+import com.programmersbox.filetransferer.net.transferproto.fileexplore.requestSendFilesSuspend
 import com.programmersbox.filetransferer.net.transferproto.fileexplore.waitClose
 import com.programmersbox.filetransferer.net.transferproto.fileexplore.waitHandshake
 import com.programmersbox.filetransferer.net.transferproto.filetransfer.model.SenderFile
@@ -34,6 +35,7 @@ import com.programmersbox.filetransferer.net.transferproto.qrscanconn.QRCodeScan
 import com.programmersbox.filetransferer.net.transferproto.qrscanconn.startQRCodeScanClientSuspend
 import com.programmersbox.filetransferer.presentation.ConnectionScreen
 import com.programmersbox.filetransferer.readPlatformFile
+import com.programmersbox.filetransferer.toFileExplore
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.absoluteFile
 import io.github.vinceglb.filekit.absolutePath
@@ -188,11 +190,11 @@ class ConnectionViewModel(
     fun sendFileExample() {
         viewModelScope.launch {
             //TODO: Figure out why this isn't working
-            val files = FileKit.openFilePicker(
+            /*val files = FileKit.openFilePicker(
                 mode = FileKitMode.Multiple()
             )
                 .orEmpty()
-                .map { readPlatformFile(it) }
+                *//*.map { readPlatformFile(it) }
                 .map { file ->
                     FileExploreFile(
                         path = file.path,
@@ -200,10 +202,48 @@ class ConnectionViewModel(
                         size = file.size(),
                         lastModify = System.currentTimeMillis()
                     )
-                }
+                }*//*
+                .map { toFileExplore(it) }
+                .onEach { println(it) }*/
+
+            val file = File(getDefaultDownloadDir(), "hello.txt")
+            if(!file.exists()) file.createNewFile()
+            file.writeText("Hello World!")
+
+            val files = listOf(
+                FileExploreFile(
+                    name = file.name,
+                    path = file.absolutePath,
+                    size = file.length(),
+                    lastModify = file.lastModified()
+                )
+            )
+
+            //sendFiles(files)
+            fileExplore.requestSendFilesSuspend(files)
+        }
+    }
+
+    fun downloadFileExample() {
+        viewModelScope.launch {
+            //TODO: Figure out why this isn't working
+            val files = FileKit.openFilePicker(
+                mode = FileKitMode.Multiple()
+            )
+                .orEmpty()
+                /*.map { readPlatformFile(it) }
+                .map { file ->
+                    FileExploreFile(
+                        path = file.path,
+                        name = file.name,
+                        size = file.size(),
+                        lastModify = System.currentTimeMillis()
+                    )
+                }*/
+                .map { toFileExplore(it) }
                 .onEach { println(it) }
 
-            sendFiles(files)
+            downloadFiles(files, 8)
         }
     }
 
@@ -225,6 +265,7 @@ class ConnectionViewModel(
                     files = files,
                     updateState = { oldState ->
                         fileSendStatus = oldState(fileSendStatus)
+                        println(fileSendStatus)
                     },
                     onResult = {
                         println(it)
@@ -254,7 +295,7 @@ class ConnectionViewModel(
         if (fileTransferMutex.isLocked) return
         fileTransferMutex.lock()
         delay(150L)
-        val result = withContext(Dispatchers.Main) {
+        val result = withContext(Dispatchers.IO) {
             runCatching {
                 val downloader = FileDownloadHandler(
                     senderAddress = d.remoteAddress.toInetAddress(),
@@ -263,6 +304,7 @@ class ConnectionViewModel(
                     maxConnectionSize = maxConnection,
                     updateState = { oldState ->
                         fileSendStatus = oldState(fileSendStatus)
+                        println(fileSendStatus)
                     },
                     onResult = {
                         println(it)

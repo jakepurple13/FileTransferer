@@ -27,7 +27,7 @@ class FileSenderHandler(
         AtomicReference(null)
     }
 
-    suspend fun send() {
+    fun send() {
         val sender = FileSender(
             files = files,
             bindAddress = bindAddress,
@@ -50,9 +50,12 @@ class FileSenderHandler(
             object : FileTransferObserver {
                 override fun onNewState(s: FileTransferState) {
                     when (s) {
-                        FileTransferState.NotExecute -> {}
+                        FileTransferState.NotExecute -> {
+                            println("NotExecute")
+                        }
                         FileTransferState.Started -> {
                             speedCalculator.start()
+                            println("Started")
                         }
 
                         FileTransferState.Canceled -> {

@@ -1,6 +1,7 @@
 package com.programmersbox.filetransferer
 
 import com.programmersbox.filetransferer.net.ILog
+import com.programmersbox.filetransferer.net.transferproto.fileexplore.model.FileExploreFile
 import io.github.vinceglb.filekit.PlatformFile
 import java.io.File
 
@@ -23,3 +24,5 @@ object DefaultLogger : ILog {
 expect fun getDefaultDownloadDir(): String
 
 expect fun readPlatformFile(file: PlatformFile): PlatformFile
+
+expect fun toFileExplore(file: PlatformFile): FileExploreFile

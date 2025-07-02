@@ -30,7 +30,7 @@ class FileDownloadHandler(
         AtomicReference(null)
     }
 
-    suspend fun download() {
+    fun download() {
         val downloader = FileDownloader(
             files = files,
             downloadDir = downloadDir,
@@ -84,9 +84,12 @@ class FileDownloadHandler(
             object : FileTransferObserver {
                 override fun onNewState(s: FileTransferState) {
                     when (s) {
-                        FileTransferState.NotExecute -> {}
+                        FileTransferState.NotExecute -> {
+                            println("NotExecute")
+                        }
                         FileTransferState.Started -> {
                             speedCalculator.start()
+                            println("Started")
                         }
 
                         FileTransferState.Canceled -> {

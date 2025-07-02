@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
+import com.programmersbox.filetransferer.net.transferproto.fileexplore.model.FileExploreFile
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.context
@@ -24,7 +25,6 @@ actual fun getDefaultDownloadDir(): String {
     ).canonicalPath
 }
 
-
 actual fun readPlatformFile(file: PlatformFile): PlatformFile {
     val context = FileKit.context
     val d = context.contentResolver.let {
@@ -36,4 +36,25 @@ actual fun readPlatformFile(file: PlatformFile): PlatformFile {
         }
     }!!
     return PlatformFile(d)
+}
+
+actual fun toFileExplore(file: PlatformFile): FileExploreFile {
+    val context = FileKit.context
+
+    val d = context
+        .contentResolver
+        .query(file.uri, null, null, null, null)
+        ?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            cursor.moveToFirst()
+            val name = cursor.getString(nameIndex)
+            File(context.filesDir, name)
+        }!!
+
+    return FileExploreFile(
+        path = d.absolutePath,
+        name = d.name,
+        size = d.length().coerceAtLeast(1),
+        lastModify = d.lastModified()
+    )
 }

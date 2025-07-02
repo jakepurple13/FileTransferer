@@ -68,6 +68,10 @@ fun ConnectionScreen(
             TextButton(
                 onClick = { viewModel.sendFileExample() }
             ) { Text("Send File") }
+
+            TextButton(
+                onClick = { viewModel.downloadFileExample() }
+            ) { Text("Download File") }
         }
     }
 }
