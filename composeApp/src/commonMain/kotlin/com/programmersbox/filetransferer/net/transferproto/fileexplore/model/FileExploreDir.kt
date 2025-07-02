@@ -1,0 +1,11 @@
+package com.programmersbox.filetransferer.net.transferproto.fileexplore.model
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class FileExploreDir(
+    val name: String,
+    val path: String,
+    val childrenCount: Int,
+    val lastModify: Long
+)
