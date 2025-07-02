@@ -31,19 +31,7 @@ import com.programmersbox.filetransferer.net.transferproto.fileexplore.requestSe
 import com.programmersbox.filetransferer.net.transferproto.fileexplore.waitClose
 import com.programmersbox.filetransferer.net.transferproto.fileexplore.waitHandshake
 import com.programmersbox.filetransferer.net.transferproto.filetransfer.model.SenderFile
-import com.programmersbox.filetransferer.net.transferproto.qrscanconn.QRCodeScanClient
-import com.programmersbox.filetransferer.net.transferproto.qrscanconn.startQRCodeScanClientSuspend
 import com.programmersbox.filetransferer.presentation.ConnectionScreen
-import com.programmersbox.filetransferer.readPlatformFile
-import com.programmersbox.filetransferer.toFileExplore
-import io.github.vinceglb.filekit.FileKit
-import io.github.vinceglb.filekit.absoluteFile
-import io.github.vinceglb.filekit.absolutePath
-import io.github.vinceglb.filekit.dialogs.FileKitMode
-import io.github.vinceglb.filekit.dialogs.openFilePicker
-import io.github.vinceglb.filekit.name
-import io.github.vinceglb.filekit.path
-import io.github.vinceglb.filekit.size
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -53,7 +41,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.util.Optional
-import kotlin.runCatching
 
 class ConnectionViewModel(
     savedStateHandle: SavedStateHandle
@@ -262,7 +249,7 @@ class ConnectionViewModel(
 
             val file = File(getDefaultDownloadDir(), "hello.txt")
             if(!file.exists()) file.createNewFile()
-            file.writeText("Hello World!")
+            file.writeText("Hello World!".repeat(1000000))
 
             val files = listOf(
                 FileExploreFile(
@@ -299,6 +286,19 @@ class ConnectionViewModel(
                         println(fileSendStatus)
                     },
                     onResult = {
+                        fileSendStatus = when(it) {
+                            FileTransferResult.Cancel -> {
+                                FileTransferDialogState()
+                            }
+
+                            FileTransferResult.Finished -> {
+                                FileTransferDialogState()
+                            }
+
+                            is FileTransferResult.Error -> {
+                                FileTransferDialogState()
+                            }
+                        }
                         println(it)
                     }
                 )
@@ -338,7 +338,19 @@ class ConnectionViewModel(
                         println(fileSendStatus)
                     },
                     onResult = {
-                        println(it)
+                        fileSendStatus = when(it) {
+                            FileTransferResult.Cancel -> {
+                                FileTransferDialogState()
+                            }
+
+                            FileTransferResult.Finished -> {
+                                FileTransferDialogState()
+                            }
+
+                            is FileTransferResult.Error -> {
+                                FileTransferDialogState()
+                            }
+                        }
                     }
                 )
                 downloader.download()
