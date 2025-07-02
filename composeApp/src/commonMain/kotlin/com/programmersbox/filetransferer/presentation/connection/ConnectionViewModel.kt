@@ -200,6 +200,9 @@ class ConnectionViewModel(
 
                                         // New message coming.
                                         override fun onNewMsg(msg: SendMsgReq) {
+                                            //TODO: Actions can happen here,
+                                            // which then create a file to send over,
+                                            // OR! we can just send messages back and forth?
                                             println(msg)
                                         }
                                     }
