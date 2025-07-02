@@ -273,31 +273,8 @@ class ConnectionViewModel(
                 )
             )
 
-            //sendFiles(files)
-            fileExplore.requestSendFilesSuspend(files)
-        }
-    }
-
-    fun downloadFileExample() {
-        viewModelScope.launch {
-            //TODO: Figure out why this isn't working
-            val files = FileKit.openFilePicker(
-                mode = FileKitMode.Multiple()
-            )
-                .orEmpty()
-                /*.map { readPlatformFile(it) }
-                .map { file ->
-                    FileExploreFile(
-                        path = file.path,
-                        name = file.name,
-                        size = file.size(),
-                        lastModify = System.currentTimeMillis()
-                    )
-                }*/
-                .map { toFileExplore(it) }
-                .onEach { println(it) }
-
-            downloadFiles(files, 8)
+            runCatching { fileExplore.requestSendFilesSuspend(files) }
+                .onSuccess { sendFiles(files) }
         }
     }
 

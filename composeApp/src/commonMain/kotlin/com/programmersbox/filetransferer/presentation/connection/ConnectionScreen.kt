@@ -61,6 +61,8 @@ fun ConnectionScreen(
             Text("Is Server: ${viewModel.d.isServer}")
             Text("Local Address: ${viewModel.d.localAddress}")
 
+            Text(viewModel.fileSendStatus.toString())
+
             TextButton(
                 onClick = { viewModel.sendMsg() }
             ) { Text("Send Message") }

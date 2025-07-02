@@ -16,5 +16,8 @@ fun ByteArray.toInt(): Int {
     if (size != 4)
         throw Exception("The length of the byte array must be at least 4 bytes long.")
 
-    return 0xff and get(0).toInt() shl 56 or (0xff and get(1).toInt() shl 48) or (0xff and get(2).toInt() shl 40) or (0xff and get(3).toInt() shl 32)
+    return 0xff and get(0).toInt() shl 56 or
+            (0xff and get(1).toInt() shl 48) or
+            (0xff and get(2).toInt() shl 40) or
+            (0xff and get(3).toInt() shl 32)
 }
