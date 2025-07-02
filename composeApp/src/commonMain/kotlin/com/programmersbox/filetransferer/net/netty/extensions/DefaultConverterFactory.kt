@@ -182,7 +182,7 @@ open class DefaultConverterFactory : IConverterFactory {
                 dataClass: Class<T>
             ): PackageData? {
                 return try {
-                    val json = defaultJson.encodeToString(dataClass)
+                    val json = defaultMoshi.adapter(dataClass).toJson(data)
                     if (json != null) {
                         PackageData(
                             type = type,

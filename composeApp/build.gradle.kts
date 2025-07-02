@@ -46,6 +46,8 @@ kotlin {
             implementation(libs.moshi)
             implementation(libs.moshi.kotlin)
             implementation(libs.moshi.adapters)
+            implementation(libs.navigation.compose)
+            implementation(libs.lifecycle.viewmodel.compose)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -85,6 +87,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+    packaging {
+        resources {
+            excludes.addAll(listOf("META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties"))
+        }
     }
 }
 

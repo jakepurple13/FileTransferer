@@ -17,3 +17,5 @@ object DefaultLogger : ILog {
         println("$tag: $msg, throwable: $throwable")
     }
 }
+
+expect fun getDefaultDownloadDir(): String

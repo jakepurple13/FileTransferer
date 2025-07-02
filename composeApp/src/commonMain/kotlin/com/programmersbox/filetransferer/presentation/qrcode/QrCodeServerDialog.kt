@@ -1,8 +1,7 @@
-package com.programmersbox.filetransferer.connection
+package com.programmersbox.filetransferer.presentation.qrcode
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +39,7 @@ import com.programmersbox.filetransferer.net.transferproto.qrscanconn.QRCodeScan
 import com.programmersbox.filetransferer.net.transferproto.qrscanconn.model.QRCodeShare
 import com.programmersbox.filetransferer.net.transferproto.qrscanconn.startQRCodeScanServerSuspend
 import io.github.alexzhirkevich.qrose.rememberQrCodePainter
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.cancel
@@ -111,7 +111,10 @@ fun showQRCodeServerDialog(
                             painter = painter,
                             contentDescription = null,
                             modifier = Modifier
-                                .background(MaterialTheme.colorScheme.onSurface, MaterialTheme.shapes.medium)
+                                .background(
+                                    MaterialTheme.colorScheme.onSurface,
+                                    MaterialTheme.shapes.medium
+                                )
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
                                 .padding(20.dp)
@@ -135,7 +138,7 @@ class QRCodeServerDialog(
     private val localDeviceInfo: String,
     private val requestTransferFile: (remoteDevice: RemoteDevice) -> Unit,
     private val painter: Painter,
-    cancelRequest: () -> Unit
+    private val cancelRequest: () -> Unit
 ) {
 
     var uiState by mutableStateOf(QRCodeServerState())
@@ -145,55 +148,53 @@ class QRCodeServerDialog(
     }
 
     suspend fun initData() {
-        coroutineScope {
-            launch(Dispatchers.IO) {
-                qrcodeServer.addObserver(
-                    object : QRCodeScanServerObserver {
-                        override fun requestTransferFile(remoteDevice: RemoteDevice) {
-                            DefaultLogger.d(TAG, "Receive request: $remoteDevice")
-                            this@QRCodeServerDialog.requestTransferFile(remoteDevice)
-                            cancel()
-                        }
-
-                        override fun onNewState(state: QRCodeScanState) {
-                            DefaultLogger.d(TAG, "Qrcode server state: $state")
-                        }
-                    }
-                )
-                runCatching {
-                    qrcodeServer.startQRCodeScanServerSuspend(localAddress = localAddress)
-                }.onSuccess {
-                    DefaultLogger.d(TAG, "Bind address success.")
-                    runCatching {
-                        val qrcodeContent = Json.encodeToString(
-                            QRCodeShare(
-                                version = TransferProtoConstant.VERSION,
-                                deviceName = localDeviceInfo,
-                                address = localAddress.toInt()
-                            )
-                        )
-                        /*val qrCodeWriter = QRCodeWriter()
-                        val matrix = qrCodeWriter.encode(qrcodeContent, BarcodeFormat.QR_CODE, 320, 320)
-                        val bufferedImage = MatrixToImageWriter.toBufferedImage(matrix)
-                        bufferedImage.toPainter()*/
-                        painter
-                    }.onSuccess {
-                        uiState = uiState.copy(qrcodePainter = Optional.of(it))
-                    }.onFailure {
-                        val ss = it.stackTrace
-                        val stringBuilder = StringBuilder()
-                        for (s in ss) {
-                            stringBuilder.appendLine(s.toString())
-                        }
-                        val eMsg = "Create qrcode fail: ${it.message} \n" + stringBuilder.toString()
-                        DefaultLogger.e(TAG, eMsg, it)
+        CoroutineScope(Dispatchers.IO).launch(Dispatchers.IO) {
+            qrcodeServer.addObserver(
+                object : QRCodeScanServerObserver {
+                    override fun requestTransferFile(remoteDevice: RemoteDevice) {
+                        DefaultLogger.d(TAG, "Receive request: $remoteDevice")
+                        this@QRCodeServerDialog.requestTransferFile(remoteDevice)
                         cancel()
                     }
+
+                    override fun onNewState(state: QRCodeScanState) {
+                        DefaultLogger.d(TAG, "Qrcode server state: $state")
+                    }
+                }
+            )
+            runCatching {
+                qrcodeServer.startQRCodeScanServerSuspend(localAddress = localAddress)
+            }.onSuccess {
+                DefaultLogger.d(TAG, "Bind address success.")
+                runCatching {
+                    val qrcodeContent = Json.encodeToString(
+                        QRCodeShare(
+                            version = TransferProtoConstant.VERSION,
+                            deviceName = localDeviceInfo,
+                            address = localAddress.toInt()
+                        )
+                    )
+                    /*val qrCodeWriter = QRCodeWriter()
+                    val matrix = qrCodeWriter.encode(qrcodeContent, BarcodeFormat.QR_CODE, 320, 320)
+                    val bufferedImage = MatrixToImageWriter.toBufferedImage(matrix)
+                    bufferedImage.toPainter()*/
+                    painter
+                }.onSuccess {
+                    uiState = uiState.copy(qrcodePainter = Optional.of(it))
                 }.onFailure {
-                    val eMsg = "Bind address: $localAddress fail"
-                    DefaultLogger.e(TAG, eMsg)
+                    val ss = it.stackTrace
+                    val stringBuilder = StringBuilder()
+                    for (s in ss) {
+                        stringBuilder.appendLine(s.toString())
+                    }
+                    val eMsg = "Create qrcode fail: ${it.message} \n" + stringBuilder.toString()
+                    DefaultLogger.e(TAG, eMsg, it)
                     cancel()
                 }
+            }.onFailure {
+                val eMsg = "Bind address: $localAddress fail"
+                DefaultLogger.e(TAG, eMsg)
+                cancel()
             }
         }
     }
@@ -201,6 +202,7 @@ class QRCodeServerDialog(
     fun stop() {
         Dispatchers.IO.asExecutor().execute {
             Thread.sleep(1000)
+            cancelRequest()
             qrcodeServer.closeConnectionIfActive()
         }
     }
