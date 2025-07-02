@@ -310,13 +310,13 @@ class FileDownloader(
                     downloadingFile.get()?.let {
                         val f = getDownloadedFile(file.name)
                         it.renameTo(f)
-                        runBlocking {
+                        /*runBlocking {
                             println(file)
                             if (f.name.endsWith(".vcf")) {
                                 println("Starting import")
                                 contactsImporter(f)
                             }
-                        }
+                        }*/
                         downloadingFile.set(null)
                         log.d(TAG, "File: ${file.name} download success!!!")
                     }

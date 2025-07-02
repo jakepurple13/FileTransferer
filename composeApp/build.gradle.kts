@@ -33,6 +33,7 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
+            implementation(compose.materialIconsExtended)
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
@@ -48,6 +49,9 @@ kotlin {
             implementation(libs.moshi.adapters)
             implementation(libs.navigation.compose)
             implementation(libs.lifecycle.viewmodel.compose)
+            implementation("io.github.vinceglb:filekit-core:0.10.0-beta04")
+            implementation("io.github.vinceglb:filekit-dialogs:0.10.0-beta04")
+            implementation("io.github.vinceglb:filekit-dialogs-compose:0.10.0-beta04")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

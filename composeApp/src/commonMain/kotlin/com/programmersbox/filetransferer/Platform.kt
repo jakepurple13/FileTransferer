@@ -1,6 +1,8 @@
 package com.programmersbox.filetransferer
 
 import com.programmersbox.filetransferer.net.ILog
+import io.github.vinceglb.filekit.PlatformFile
+import java.io.File
 
 interface Platform {
     val name: String
@@ -19,3 +21,5 @@ object DefaultLogger : ILog {
 }
 
 expect fun getDefaultDownloadDir(): String
+
+expect fun readPlatformFile(file: PlatformFile): PlatformFile
